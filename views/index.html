@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    table, td, th {
+      border: 1px solid #292929;
+    }
+
+    td, th {
+      padding: 5px;
+    }
+  </style>
+  <body>
+    <section>
+      <h1>COM3</h1>
+      <select name="" id="form-select-port">
+      </select>
+      <button id="btn-open-port">Open</button>
+      <button id="btn-close-port">Close</button>
+      <br><br>
+      <input type="text" placeholder="Insert unique code..." id="form-unique-code">
+      <button id="btn-send-port">Send</button>
+      <br><br>
+      <h6>Set LED</h6>
+      <button id="btn-led-on">ON</button>
+      <button id="btn-led-off">OFF</button>
+      <br><br><br>
+      <button id="btn-refresh">Refres</button>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Suhu</th>
+            <th>Waktu</th>
+          </tr>
+        </thead>
+        <tbody id="data-rows">
+        </tbody>
+      </table>
+    </section>
+    <script>
+      const mainUrl = 'http://127.0.0.1:7979'
+      const yourRequest = async (url, settings) => {
+        try {
+          const response = await fetch(url, settings);
+
+          if (response.ok) {
+            const data = await response.json();
+            return [data, null];
+          }
+
+          const error = await response.json();
+          return [null, error];
+        } catch (error) {
+          return [null, error];
+        }
+      };
+
+      const reqPort = async (action) => {
+        const selectedPort = document.getElementById('form-select-port')
+        const settings = {
+            method: 'POST',
+            headers: {
+                 "Accept": "application/json",
+                 "Content-Type": "application/json",
+                 "Access-Control-Allow-Origin" : "*",
+            },
+            body: JSON.stringify({
+              port: selectedPort.value
+            })
+        }
+
+        const [data, error] = await yourRequest(mainUrl+'/'+action, settings)
+
+        alert("Port " + action)
+
+        console.log(data, error);
+      }
+
+      const reqSetLed = async (mode) => {
+        const settings = {
+            method: 'POST',
+            headers: {
+                 "Accept": "application/json",
+                 "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              mode: mode
+            })
+        }
+
+        const [data, error] = await yourRequest(mainUrl+'/set-led', settings)
+
+        console.log(data, error);
+      }
+
+      const reqSendCode = async () => {
+        const formCode = document.getElementById('form-unique-code')
+        const settings = {
+            method: 'POST',
+            headers: {
+                 "Accept": "application/json",
+                 "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              code: formCode.value
+            })
+        }
+
+        const [data, error] = await yourRequest(mainUrl+'/send', settings)
+
+        console.log(data, error);
+      }
+
+      const reqData = async (action) => {
+        const settings = {
+            method: 'GET',
+            headers: {
+                 "Accept": "application/json"
+            },
+        }
+
+        const [data, error] = await yourRequest(mainUrl+'/get', settings)
+
+        if (error) {
+          console.log(error);
+          return 0
+        }
+
+        // console.log(data);
+        // let td = ``
+
+        // data.data.forEach(telemetri => {
+        //   td += `<tr>
+        //       <td>${telemetri.ID}</td>
+        //       <td>${telemetri.Suhu}</td>
+        //       <td>${telemetri.times}</td>
+        //     </tr>`
+        // });
+
+        // document.getElementById('data-rows').innerHTML = td
+
+        let option = `<option value="">Select Port</option>`
+        data.ports.forEach(port => {
+          option += `<option value="${port.path}">${port.path} ${port.isOpen ? 'Open' : 'Close'}</option>`
+        });
+
+        document.getElementById('form-select-port').innerHTML = option
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        console.log("Hello World!");
+
+        document.getElementById('btn-open-port').addEventListener('click', (event) => {
+          reqPort('open')
+        })
+        document.getElementById('btn-close-port').addEventListener('click', (event) => {
+          reqPort('close')
+        })
+        document.getElementById('btn-send-port').addEventListener('click', (event) => {
+          reqSendCode()
+        })
+        document.getElementById('btn-refresh').addEventListener('click', (event) => {
+          reqData()
+        })
+        document.getElementById('btn-led-on').addEventListener('click', (event) => {
+          reqSetLed(1)
+        })
+        document.getElementById('btn-led-off').addEventListener('click', (event) => {
+          reqSetLed(0)
+        })
+
+        reqData()
+      });
+    </script>
+  </body>
+</html>
