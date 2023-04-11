@@ -4,16 +4,10 @@ const mysql = require('mysql');
 const {SerialPort} = require('serialport');
 const {ReadlineParser} = require('@serialport/parser-readline');
 const { autoDetect } = require('@serialport/bindings-cpp')
-const io = require('socket.io-client');
 const axios = require('axios');
 const cors = require('cors');
 require('dotenv').config();
 
-// Connect to Laravel WebSocket server
-const socket = io('http://localhost:6001', {
-  path: '/socket.io',
-  transports: ['websocket'],
-});
 
 // Create a connection to the MySQL database
 const connection = mysql.createConnection({
@@ -25,12 +19,21 @@ const connection = mysql.createConnection({
 
 const app = express()
 const httpServer = createServer(app)
+// const io = require('socket.io')(httpServer);
 const bodyParser = require('body-parser')
 let portStatus = false
 let wsStatus = false
 let serialPorts = []
 const Binding = autoDetect()
 let dataPayload
+
+// io.on('connection', (socket) => {
+//   console.log('a client connected');
+
+//   socket.on('disconnect', () => {
+//     console.log('client disconnected');
+//   });
+// });
 
 SerialPort.list().then(function(ports) {
   // Open a serial port for each available port
@@ -52,6 +55,19 @@ app.use(bodyParser.json())
 //IMPORT ROUTES
 const postsRoute = require('./routes/posts');
 
+// define a function that returns a promise
+function query(sql, args) {
+  return new Promise((resolve, reject) => {
+    connection.query(sql, args, (error, results) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
 app.use('/posts', postsRoute)
 
 //ROUTES
@@ -60,21 +76,56 @@ app.get('/', async (req, res) => {
 })
 
 app.get('/get', async (req, res) => {
-  const ports = await SerialPort.list()
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader("Content-Type", "application/json")
-  res.json(
-    {
-      ok: true, 
-      ports: ports.map((val, i) => {
-        return {
-          path: val.path,
-          isOpen: false
-        }
-      })
-    }
-  )
-  res.end()
+
+  try {
+    const ports = await SerialPort.list()
+    const setting = await query('SELECT * FROM settings LIMIT 1');
+  
+    res.json(
+      {
+        ok: true, 
+        ports: ports.map((val, i) => {
+          return {
+            path: val.path,
+            isOpen: false,
+          }
+        }),
+        setting: setting[0]
+      }
+    )
+  } catch (error) {
+    throw error;
+  } finally {
+    res.end()
+  }
+
+
+})
+
+app.get('/telemetries', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader("Content-Type", "application/json")
+  try {
+    let data = {}
+    
+    // Insert the data into the "monitoring_portable" table
+    const result = await query('SELECT * FROM telemetries ORDER BY `created_at` DESC LIMIT 10');
+    
+    data.telemetries = result
+
+    const result2 = await query('SELECT * FROM settings LIMIT 1');
+
+    data.last_data_sent_at = result2[0].last_data_sent_at
+    
+    res.json(data)
+  } catch (error) {
+    console.error(error);
+    throw error;
+  } finally {
+    res.end()
+  }
 })
 
 app.post('/open', (req, res) => {
@@ -167,12 +218,12 @@ app.post('/open', (req, res) => {
       cuaca: cuaca,
       lat: lat,
       lng: lng,
-      perangkat_edge_no_seri: req.body.noSeriEdge,
+      // perangkat_edge_no_seri: req.body.noSeriEdge,
       created_at: myDate,
     };
 
     // Insert the data into the "monitoring_portable" table
-    connection.query('INSERT INTO monitoring_portable SET ?', dataQeury, function(err, result) {
+    connection.query('INSERT INTO telemetries SET ?', dataQeury, function(err, result) {
       if (err) throw err;
       console.log('Data inserted successfully.');
       // console.log('Result:', result);
@@ -193,7 +244,7 @@ app.post('/close', (req, res) => {
         message: "Port Tidak ditemukan"
       }
     });
-    return console.log('Error opening port: ', "Port tidak ditemukan")
+    return console.log('Error close port: ', "Port tidak ditemukan")
   }
 
   const port = serialPorts[portIndex]
@@ -227,31 +278,53 @@ app.post('/close', (req, res) => {
     res.end()
   })
 })
-app.post('/send', (req, res) => {
-  console.log(req.body);
-  if (portStatus) {
-    const uniqueCode = req.body.code
-    const messages = 'SETCODE,'+uniqueCode+',*'
-    port.write(' '+messages, function(err) {
-      if (err) {
-        return console.log('Error on write: ', err.message)
-      }
-      console.log('message written')
-    })
+
+app.get('/get-telemetries-after-last-sent', async (req, res) => {
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader("Content-Type", "application/json")
+
+    const result = await query('SELECT suhu, kelembapan, arah_angin, tekanan, kecepatan_angin, cahaya, cuaca, lat, lng FROM telemetries WHERE created_at > ?', req.query.last_sent_at);
+    
+    res.json(result)
+  } catch (error) {
+    throw error;
+  } finally {
+    res.end()
   }
 })
 
-app.post('/set-led', (req, res) => {
-  console.log(req.body);
-  if (portStatus) {
-    const mode = req.body.mode
-    const messages = 'SETLED,'+mode+',*'
-    port.write(' '+messages, function(err) {
-      if (err) {
-        return console.log('Error on write: ', err.message)
-      }
-      console.log('message written')
+app.post('/save-ip-server', async (req, res) => {
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader("Content-Type", "application/json")
+
+    const result = await query('INSERT INTO settings (`ip_server`) VALUES (?)', req.body.ipServer)
+    
+    res.json({
+      message: 'Berhasil disimpan'
     })
+  } catch (error) {
+    throw error;
+  } finally {
+    res.end()
+  }
+})
+
+app.put('/save-latest-data-sent-at', async (req, res) => {
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader("Content-Type", "application/json")
+
+    const result = await query('INSERT INTO settings (`last_data_sent_at`) VALUES (?)', req.body.timestamp)
+    
+    res.json({
+      message: 'Berhasil disimpan'
+    })
+  } catch (error) {
+    throw error;
+  } finally {
+    res.end()
   }
 })
 

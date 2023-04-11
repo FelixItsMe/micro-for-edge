@@ -5,46 +5,86 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <style>
+      .bg-custom-green {
+        background-color: #019267;
+      }
+    </style>
   </head>
-  <style>
-    table, td, th {
-      border: 1px solid #292929;
-    }
-
-    td, th {
-      padding: 5px;
-    }
-  </style>
   <body>
-    <section>
-      <h1>COM3</h1>
-      <select name="" id="form-select-port">
-      </select>
-      <button id="btn-open-port">Open</button>
-      <button id="btn-close-port">Close</button>
-      <br><br>
-      <input type="text" placeholder="Insert unique code..." id="form-unique-code">
-      <button id="btn-send-port">Send</button>
-      <br><br>
-      <h6>Set LED</h6>
-      <button id="btn-led-on">ON</button>
-      <button id="btn-led-off">OFF</button>
-      <br><br><br>
-      <button id="btn-refresh">Refres</button>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Suhu</th>
-            <th>Waktu</th>
-          </tr>
-        </thead>
-        <tbody id="data-rows">
-        </tbody>
-      </table>
+    <nav class="navbar navbar-expand-lg navbar-light bg-custom-green">
+      <div class="container-fluid">
+        <a class="navbar-brand mx-auto text-white" href="#">PETIKTEH</a>
+      </div>
+    </nav>
+    <section class="mt-3 mb-3">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-3">
+            <select name="" id="form-select-port" class="form-select">
+            </select>
+          </div>
+          <div class="col-md-3">
+            <div class="d-flex flex-row">
+              <button class="btn btn-primary mx-1" id="btn-open-port">Open</button>
+              <button class="btn btn-danger mx-1" id="btn-close-port">Close</button>
+            </div>
+          </div>
+          <div class="col-md-12 mt-3">
+            <div class="d-flex justify-content-between">
+              <button class="btn btn-info" id="btn-refresh">Refres</button>
+            </div>
+          </div>
+          <div class="col-md-12 mt-1 mb-3">
+            <table class="table">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Temperature</th>
+                  <th>Humidity</th>
+                  <th>Pressure</th>
+                  <th>Wind Direction</th>
+                  <th>Wind Speed</th>
+                  <th>Waktu</th>
+                </tr>
+              </thead>
+              <tbody id="data-rows">
+                <tr>
+                  <td colspan="7" class="text-center">Tidak Ada data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="col-md-6">
+            <div class="form-floating">
+              <input type="text" class="form-control" id="form-input-ip-server" placeholder="http(s)://xxx.xxx.xxx.xxx">
+              <label for="form-input-ip-server" class="form-label">IP SERVER</label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="d-flex flex-row h-100">
+              <button class="btn btn-primary h-100 mx-1" id="btn-save-ip-server">Save</button>
+              <button class="btn btn-danger mx-1" id="btn-send-data">Send</button>
+            </div>
+          </div>
+          <div class="col-md-12">
+            <span>Last data sent at:&nbsp;<span id="last-data-sent"></span></span>
+          </div>
+        </div>
+      </div>
     </section>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
     <script>
       const mainUrl = 'http://127.0.0.1:7979'
+      let setting = {
+        ipServer: null,
+        lastDataSentAt: null,
+        noSeri: null,
+      }
+
+      let settingHeader = {}
+
       const yourRequest = async (url, settings) => {
         try {
           const response = await fetch(url, settings);
@@ -63,7 +103,7 @@
 
       const reqPort = async (action) => {
         const selectedPort = document.getElementById('form-select-port')
-        const settings = {
+        settingHeader = {
             method: 'POST',
             headers: {
                  "Accept": "application/json",
@@ -75,75 +115,78 @@
             })
         }
 
-        const [data, error] = await yourRequest(mainUrl+'/'+action, settings)
-
-        alert("Port " + action)
-
-        console.log(data, error);
-      }
-
-      const reqSetLed = async (mode) => {
-        const settings = {
-            method: 'POST',
-            headers: {
-                 "Accept": "application/json",
-                 "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              mode: mode
-            })
-        }
-
-        const [data, error] = await yourRequest(mainUrl+'/set-led', settings)
-
-        console.log(data, error);
-      }
-
-      const reqSendCode = async () => {
-        const formCode = document.getElementById('form-unique-code')
-        const settings = {
-            method: 'POST',
-            headers: {
-                 "Accept": "application/json",
-                 "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              code: formCode.value
-            })
-        }
-
-        const [data, error] = await yourRequest(mainUrl+'/send', settings)
-
-        console.log(data, error);
-      }
-
-      const reqData = async (action) => {
-        const settings = {
-            method: 'GET',
-            headers: {
-                 "Accept": "application/json"
-            },
-        }
-
-        const [data, error] = await yourRequest(mainUrl+'/get', settings)
+        const [data, error] = await yourRequest(mainUrl+'/'+action, settingHeader)
 
         if (error) {
           console.log(error);
           return 0
         }
 
-        // console.log(data);
-        // let td = ``
+        alert("Port " + action)
 
-        // data.data.forEach(telemetri => {
-        //   td += `<tr>
-        //       <td>${telemetri.ID}</td>
-        //       <td>${telemetri.Suhu}</td>
-        //       <td>${telemetri.times}</td>
-        //     </tr>`
-        // });
+        console.log(data, error);
+      }
 
-        // document.getElementById('data-rows').innerHTML = td
+      const sendDataTelemetries = async (ipServer, lastDataSentAt, noSeri, telemetries) => {
+        settingHeader = {
+          method: 'POST',
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            data: telemetries,
+            time: lastDataSentAt,
+            noSeri: noSeri,
+          })
+        }
+
+        const [data, error] = await yourRequest(ipServer+'/api/receive-data-edge', settingHeader)
+        
+        if (error) {
+          alert(error.message)
+          throw new Error(error.message)
+        }
+
+        return data
+      }
+
+      const updateLastDataSendAt = async (newTimestamp) => {
+        settingHeader = {
+          method: 'PUT',
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            timestamp: newTimestamp,
+          })
+        }
+
+        const [data, error] = await yourRequest(ipServer+'/api/receive-data-edge', settingHeader)
+        
+        if (error) {
+          alert(error.message)
+          throw new Error(error.message)
+        }
+
+        return data
+      }
+
+      const reqData = async (action) => {
+        settingHeader = {
+            method: 'GET',
+            headers: {
+                 "Accept": "application/json"
+            },
+        }
+
+        const [data, error] = await yourRequest(mainUrl+'/get', settingHeader)
+
+        if (error) {
+          console.log(error);
+          return 0
+        }
 
         let option = `<option value="">Select Port</option>`
         data.ports.forEach(port => {
@@ -151,6 +194,103 @@
         });
 
         document.getElementById('form-select-port').innerHTML = option
+
+        document.getElementById('form-input-ip-server').value = data.setting.ip_server
+        setting.ipServer = data.setting.ip_server
+        setting.lastDataSentAt = data.setting.last_data_sent_at
+        setting.noSeri = data.setting.no_seri
+      }
+
+      const getTelemetriesAfterLastSentAt = async (lastDataSentAt, noSeri) => {
+        settingHeader = {
+            method: 'GET',
+            headers: {
+                 "Accept": "application/json"
+            },
+        }
+
+        const url = new URL(mainUrl+'/get-telemetries-after-last-sent')
+
+        url.searchParams.set('last_sent_at', lastDataSentAt)
+
+        const [data, error] = await yourRequest(url, settingHeader)
+
+        if (error) {
+          console.log(error);
+          return 0
+        }
+        
+        const newTelemetries = data.map((telemetri, i) => {
+          return {...telemetri, perangkat_edge_no_seri: noSeri}
+        })
+
+        return newTelemetries
+      }
+
+      function validateIpServer(url) {
+        const urlRegex = /^(https?):\/\/[^\s/$.?#].[^\s]*[^\/\s]$/i
+        if (urlRegex.test(url)) {
+          return true
+        }
+
+        return false
+      }
+
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false
+      });
+
+      async function getTelemetries() {
+        document.getElementById('data-rows').innerHTML = `<tr>
+              <td colspan="7">Loading...</td>
+            </tr>`
+        
+        settingHeader = {
+            method: 'GET',
+            headers: {
+                 "Accept": "application/json"
+            },
+        }
+
+        const [data, error] = await yourRequest(mainUrl+'/telemetries', settingHeader)
+
+        if (error) {
+          console.log(error);
+          return 0
+        }
+
+        const telemetries = await data.telemetries
+        const lastDataSentAt = await data.last_data_sent_at
+
+        setLastDataSentAt(formatter.format(new Date(lastDataSentAt)))
+
+        let td = ``
+
+        telemetries.forEach((telemetri, i) => {
+          td += `<tr>
+              <td>${i+1}</td>
+              <td>${telemetri.suhu}</td>
+              <td>${telemetri.kelembapan}</td>
+              <td>${telemetri.tekanan}</td>
+              <td>${telemetri.arah_angin}</td>
+              <td>${telemetri.kecepatan_angin}</td>
+              <td>${formatter.format(new Date(telemetri.created_at))}</td>
+            </tr>`
+        });
+
+        document.getElementById('data-rows').innerHTML = td
+      }
+
+      function setLastDataSentAt(datetime) {
+        document.getElementById('last-data-sent').innerText = datetime
+
+        return true
       }
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -162,20 +302,31 @@
         document.getElementById('btn-close-port').addEventListener('click', (event) => {
           reqPort('close')
         })
-        document.getElementById('btn-send-port').addEventListener('click', (event) => {
-          reqSendCode()
-        })
         document.getElementById('btn-refresh').addEventListener('click', (event) => {
           reqData()
+          getTelemetries()
         })
-        document.getElementById('btn-led-on').addEventListener('click', (event) => {
-          reqSetLed(1)
-        })
-        document.getElementById('btn-led-off').addEventListener('click', (event) => {
-          reqSetLed(0)
+        document.getElementById('btn-send-data').addEventListener('click', async (event) => {
+          const inputIpServer = document.getElementById('form-input-ip-server').value
+          const timestamp = new Date()
+
+          const data = await getTelemetriesAfterLastSentAt(setting.lastDataSentAt, setting.noSeri)
+          const validated = validateIpServer(inputIpServer)
+
+          if (!validated) {
+            alert("Harap input ip server yang benar")
+            throw new Error("Harap input ip server yang benar")
+          }
+
+          const result = await sendDataTelemetries(inputIpServer, setting.lastDataSentAt, setting.noSeri, data)
+
+          const result2 = await updateLastDataSendAt(timestamp)
+
+          alert(result.message);
         })
 
         reqData()
+        getTelemetries()
       });
     </script>
   </body>
